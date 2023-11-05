@@ -1,32 +1,44 @@
 import { z } from "zod";
-
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { createPostSchema, updatePostSchema } from "~/validation-schemas";
 
 export const postRouter = createTRPCRouter({
-  hello: publicProcedure
-    .input(z.object({ text: z.string() }))
-    .query(({ input }) => {
-      return {
-        greeting: `Hello ${input.text}`,
-      };
-    }),
-
   create: publicProcedure
-    .input(z.object({ name: z.string().min(1) }))
+    .input(createPostSchema)
     .mutation(async ({ ctx, input }) => {
-      // simulate a slow db call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
       return ctx.db.post.create({
         data: {
-          name: input.name,
+          content: input.content,
         },
       });
     }),
-
-  getLatest: publicProcedure.query(({ ctx }) => {
-    return ctx.db.post.findFirst({
-      orderBy: { createdAt: "desc" },
+  byId: publicProcedure.input(z.string().cuid()).query(({ ctx, input }) => {
+    return ctx.db.post.findUniqueOrThrow({
+      where: {
+        id: input,
+      },
     });
+  }),
+  update: publicProcedure.input(updatePostSchema).mutation(({ ctx, input }) => {
+    return ctx.db.post.update({
+      where: {
+        id: input.id,
+      },
+      data: {
+        content: input.content,
+      },
+    });
+  }),
+  delete: publicProcedure
+    .input(z.string().cuid())
+    .mutation(({ ctx, input }) => {
+      return ctx.db.post.delete({
+        where: {
+          id: input,
+        },
+      });
+    }),
+  all: publicProcedure.query(({ ctx }) => {
+    return ctx.db.post.findMany();
   }),
 });
